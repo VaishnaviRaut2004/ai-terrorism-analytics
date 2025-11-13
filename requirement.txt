@@ -1,6 +1,7 @@
 streamlit
-pandas
 plotly
+pandas
+numpy
 scikit-learn
-pycountry
-geopy
+matplotlib
+seaborn
