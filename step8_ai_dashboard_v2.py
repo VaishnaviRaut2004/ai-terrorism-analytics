@@ -1,4 +1,3 @@
-# C:\xml\step8_ai_dashboard_v2.py
 # AI-Powered Terrorism Analytics — Modern Dashboard v2.0
 # Designed for: Vaishnavi Raut
 # Built with Streamlit + Plotly + Scikit-learn
@@ -10,6 +9,7 @@ import plotly.graph_objects as go
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import train_test_split
 import pycountry
+import os
 
 # ------------------------------------------------------------
 # 🌈 PAGE CONFIG
@@ -77,21 +77,30 @@ st.markdown('<div class="navbar"><h1>🌍 AI-Powered Terrorism Analytics Dashboa
 # ------------------------------------------------------------
 # 📂 LOAD DATA
 # ------------------------------------------------------------
-data = pd.read_csv(r"C:\xml\gti_cleaned.csv")
+# ✅ Use relative path so it works on both local and Streamlit Cloud
+data_path = "gti_cleaned.csv"
 
-# Add ISO3 codes
+if not os.path.exists(data_path):
+    st.error("❌ Dataset not found! Please make sure 'gti_cleaned.csv' is in the same folder as this app.")
+    st.stop()
+
+data = pd.read_csv(data_path)
+
+# Add ISO3 country codes safely
 def iso3(c):
     try:
         return pycountry.countries.lookup(c).alpha_3
     except:
         return None
-data["iso3c"] = data["Country"].apply(iso3)
+
+if "iso3c" not in data.columns:
+    data["iso3c"] = data["Country"].apply(iso3)
 
 # ------------------------------------------------------------
 # 🧭 SIDEBAR FILTERS
 # ------------------------------------------------------------
 st.sidebar.header("🔍 Filters")
-year = st.sidebar.selectbox("Select Year", sorted(data["Year"].unique()), index=len(data["Year"].unique())-1)
+year = st.sidebar.selectbox("Select Year", sorted(data["Year"].unique()), index=len(data["Year"].unique()) - 1)
 df_year = data[data["Year"] == year]
 
 # ------------------------------------------------------------
@@ -118,14 +127,14 @@ with tabs[0]:
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    col_map, col_bar = st.columns((2,1))
+    col_map, col_bar = st.columns((2, 1))
     with col_map:
         st.markdown("<div class='card'>", unsafe_allow_html=True)
         st.subheader("🗺️ Global Terrorism Score Map")
         map_fig = px.choropleth(
             df_year, locations="iso3c", color="Score",
             hover_name="Country", color_continuous_scale="plasma",
-            title="", projection="natural earth"
+            projection="natural earth"
         )
         st.plotly_chart(map_fig, use_container_width=True)
         st.markdown("</div>", unsafe_allow_html=True)
@@ -174,9 +183,9 @@ with tabs[1]:
 with tabs[2]:
     st.subheader("🎯 AI Prediction Model — Terrorism Score Estimator")
 
-    # Train model
     X = data[['Incidents', 'Fatalities', 'Injuries', 'Hostages', 'Rank']].fillna(0)
     y = data['Score'].fillna(0)
+
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.15, random_state=42)
     model = RandomForestRegressor(n_estimators=200, random_state=42)
     model.fit(X_train, y_train)
@@ -217,9 +226,9 @@ with tabs[3]:
     st.markdown(f"""
     <div style="text-align:center; color:white;">
     <h3 style='color:#FFD700;'>Quick Insights</h3>
-    🌋 **Most Affected Country:** {hi_country}  
-    📅 **Deadliest Year:** {hi_year}  
-    ⚙️ **Average Score:** {avg_score}  
+    🌋 **Most Affected Country:** {hi_country}<br>
+    📅 **Deadliest Year:** {hi_year}<br>
+    ⚙️ **Average Score:** {avg_score}<br>
     🌐 **Countries Analyzed:** {total_countries}
     </div>
     """, unsafe_allow_html=True)
