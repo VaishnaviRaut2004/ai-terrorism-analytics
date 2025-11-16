@@ -65,7 +65,6 @@ def login_widget():
 def logout():
     st.session_state.auth_ok = False
     st.session_state.username = None
-    # simply let the UI re-render to show login
 
 # -------------------------
 # SHOW LOGIN IF NOT AUTHENTICATED
@@ -115,7 +114,6 @@ st.markdown(
     .metric { padding:10px; border-radius:10px; }
     .small { color:var(--muted); font-size:13px; }
     .chip { background: linear-gradient(90deg,#fff,#f1fff6); padding:6px 10px; border-radius:999px; color:var(--muted); border:1px solid rgba(3,60,37,0.03); }
-    .btn-admin { background: linear-gradient(90deg,var(--emerald),var(--teal)); color:white; padding:8px 12px; border-radius:10px; border:none; }
     footer { text-align:center; color:var(--muted); padding:8px; }
     </style>
     """,
@@ -123,7 +121,7 @@ st.markdown(
 )
 
 # -------------------------
-# HEADER TOPBAR (shows role)
+# HEADER TOPBAR
 # -------------------------
 st.markdown(
     f"""
@@ -135,16 +133,13 @@ st.markdown(
       <div style="display:flex; gap:10px; align-items:center;">
         <div class="chip">Data: gti_cleaned.csv</div>
         <div class="chip">Theme: Emerald Matrix</div>
-        <div>
-          <!-- logout button -->
-        </div>
       </div>
     </div>
     """,
     unsafe_allow_html=True,
 )
 
-# Logout button (unique key)
+# Logout button
 if st.button("Logout", key="logout_em"):
     logout()
     st.experimental_rerun()
@@ -154,23 +149,18 @@ if st.button("Logout", key="logout_em"):
 # -------------------------
 DATA_FILE = "gti_cleaned.csv"
 if not Path(DATA_FILE).exists():
-    st.error("❌ Dataset 'gti_cleaned.csv' not found in repo root. Please add it.")
+    st.error("❌ Dataset 'gti_cleaned.csv' not found. Please add it.")
     st.stop()
 
 @st.cache_data(show_spinner=False)
 def load_data(path):
-    df = pd.read_csv(path)
-    return df
+    return pd.read_csv(path)
 
 data = load_data(DATA_FILE)
 
-# ensure expected columns exist
-expected_cols = {"iso3c", "Country", "Rank", "Score", "Incidents", "Fatalities", "Injuries", "Hostages", "Year"}
-missing = expected_cols - set(data.columns)
-if missing:
-    st.warning(f"Missing columns (app will try to continue): {', '.join(sorted(missing))}")
-
-# iso3 safe fill
+# -------------------------
+# Clean - ISO3 column
+# -------------------------
 def safe_iso3(name):
     try:
         if pd.isna(name):
@@ -179,313 +169,204 @@ def safe_iso3(name):
         if len(s) == 3 and s.isalpha():
             return s.upper()
         return pycountry.countries.lookup(s).alpha_3
-    except Exception:
+    except:
         return None
 
-if "iso3c" not in data.columns or data["iso3c"].isnull().any():
+if "iso3c" not in data.columns:
     if "Country" in data.columns:
         data["iso3c"] = data["Country"].apply(safe_iso3)
     else:
         data["iso3c"] = None
 
-# numeric conversions
-for c in ["Incidents", "Fatalities", "Injuries", "Hostages", "Score", "Rank", "Year"]:
-    if c in data.columns:
-        data[c] = pd.to_numeric(data[c], errors="coerce')
-
-# (fix accidental quote) -> corrected next line
+# -------------------------
+# Correct numeric conversion (FINAL correct version)
+# -------------------------
 for c in ["Incidents", "Fatalities", "Injuries", "Hostages", "Score", "Rank", "Year"]:
     if c in data.columns:
         data[c] = pd.to_numeric(data[c], errors="coerce")
-# fill zeros for core numeric columns
+
 for c in ["Incidents", "Fatalities", "Injuries", "Hostages", "Score", "Rank"]:
     if c in data.columns:
         data[c] = data[c].fillna(0)
 
 # -------------------------
-# SIDEBAR - role-aware (admins can edit; viewers see disabled controls)
+# SIDEBAR
 # -------------------------
 with st.sidebar:
     st.header("Filters & Settings")
-    years = sorted(data["Year"].dropna().astype(int).unique().tolist()) if "Year" in data.columns else []
-    # for viewers disable changing year? We'll still let them pick year but it's harmless; main restrictions below
-    selected_year = st.selectbox("Year", years, index=len(years)-1 if years else 0, key="sb_year_em", disabled=(role=="viewer"))
-    country_list = ["All"] + (sorted(data["Country"].dropna().unique().tolist()) if "Country" in data.columns else [])
-    selected_country = st.selectbox("Country", country_list, index=0, key="sb_country_em", disabled=(role=="viewer"))
+    years = sorted(data["Year"].dropna().astype(int).unique().tolist())
+    selected_year = st.selectbox("Year", years, index=len(years)-1)
+
+    country_list = ["All"] + sorted(data["Country"].dropna().unique().tolist())
+    selected_country = st.selectbox("Country", country_list, index=0)
+
     st.markdown("---")
     st.subheader("Visualization Options")
-    top_n = st.slider("Top N countries", 5, 30, 10, key="sb_topn_em", disabled=(role=="viewer"))
-    show_anim_map = st.checkbox("Animated map (year)", value=True, key="sb_anim_em", disabled=(role=="viewer"))
-    show_heatmap = st.checkbox("Heatmap (year vs top countries)", value=True, key="sb_heat_em", disabled=(role=="viewer"))
-    show_bubble = st.checkbox("Bubble chart (Fatalities vs Injuries)", value=True, key="sb_bub_em", disabled=(role=="viewer"))
-    show_pie = st.checkbox("Top-country pie", value=True, key="sb_pie_em", disabled=(role=="viewer"))
+
+    top_n = st.slider("Top N countries", 5, 30, 10)
+
+    show_anim_map = st.checkbox("Animated map (year)", value=True)
+    show_heatmap = st.checkbox("Heatmap Year vs Countries", value=True)
+    show_bubble = st.checkbox("Bubble Chart", value=True)
+    show_pie = st.checkbox("Top-country pie", value=True)
+
     st.markdown("---")
-    st.subheader("Model (Admin Only)")
-    # only admin can retrain / control model params
+    st.subheader("Model")
+
     retrain = False
+    n_estim = 150
+
     if role == "admin":
-        retrain = st.checkbox("Retrain model (slow)", value=False, key="sb_retrain_em")
-        n_estim = st.number_input("RF n_estimators", min_value=10, max_value=1000, value=150, step=10, key="sb_nest_em")
-    else:
-        st.markdown("<div class='small'>Viewer: model settings are read-only.</div>", unsafe_allow_html=True)
+        retrain = st.checkbox("Retrain model", value=False)
+        n_estim = st.number_input("RF n_estimators", min_value=10, max_value=500, value=150)
 
 # -------------------------
-# Apply filters to df
+# Apply filters
 # -------------------------
 df = data.copy()
-if "Year" in df.columns:
-    df = df[df["Year"] == int(selected_year)]
+df = df[df["Year"] == selected_year]
 if selected_country != "All":
     df = df[df["Country"] == selected_country]
 
 # -------------------------
-# TOP METRICS (floating cards)
+# TOP METRICS
 # -------------------------
 c1, c2, c3, c4 = st.columns([2,1,1,1])
+
 with c1:
     st.markdown("<div class='card'>", unsafe_allow_html=True)
-    top_country_all = data.groupby("Country")["Incidents"].sum().idxmax() if "Country" in data.columns and not data.empty else "N/A"
-    st.markdown(f"<div style='font-size:18px; font-weight:700; color:#0b8043'>{top_country_all}</div>", unsafe_allow_html=True)
-    st.markdown("<div class='small'>Most affected country (all years)</div>", unsafe_allow_html=True)
+    top_country = data.groupby("Country")["Incidents"].sum().idxmax()
+    st.markdown(f"<b>{top_country}</b><br><span class='small'>Most affected country</span>", unsafe_allow_html=True)
     st.markdown("</div>", unsafe_allow_html=True)
+
 with c2:
     st.markdown("<div class='card'>", unsafe_allow_html=True)
-    deadliest_year = int(data.groupby("Year")["Fatalities"].sum().idxmax()) if "Year" in data.columns and not data.empty else 0
-    st.markdown(f"<div style='font-size:16px; font-weight:600'>{deadliest_year}</div>", unsafe_allow_html=True)
-    st.markdown("<div class='small'>Deadliest year</div>", unsafe_allow_html=True)
+    deadliest_year = int(data.groupby("Year")["Fatalities"].sum().idxmax())
+    st.markdown(f"<b>{deadliest_year}</b><br><span class='small'>Deadliest year</span>", unsafe_allow_html=True)
     st.markdown("</div>", unsafe_allow_html=True)
+
 with c3:
     st.markdown("<div class='card'>", unsafe_allow_html=True)
-    avg_score = data["Score"].mean() if "Score" in data.columns else 0
-    st.markdown(f"<div style='font-size:16px; font-weight:600'>{avg_score:.2f}</div>", unsafe_allow_html=True)
-    st.markdown("<div class='small'>Average Score</div>", unsafe_allow_html=True)
+    avg_score = data["Score"].mean()
+    st.markdown(f"<b>{avg_score:.2f}</b><br><span class='small'>Average Score</span>", unsafe_allow_html=True)
     st.markdown("</div>", unsafe_allow_html=True)
+
 with c4:
     st.markdown("<div class='card'>", unsafe_allow_html=True)
-    country_count = data["Country"].nunique() if "Country" in data.columns else 0
-    st.markdown(f"<div style='font-size:16px; font-weight:600'>{country_count}</div>", unsafe_allow_html=True)
-    st.markdown("<div class='small'>Countries analyzed</div>", unsafe_allow_html=True)
+    ccount = data["Country"].nunique()
+    st.markdown(f"<b>{ccount}</b><br><span class='small'>Countries analyzed</span>", unsafe_allow_html=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
-st.markdown("<br/>", unsafe_allow_html=True)
+st.markdown("<br>", unsafe_allow_html=True)
 
 # -------------------------
-# MAIN LAYOUT: map and charts
+# MAP & CHARTS
 # -------------------------
 left, right = st.columns((2,1))
+
 with left:
     st.markdown("<div class='card'>", unsafe_allow_html=True)
-    st.subheader(f"🗺️ Global Terrorism Score — {selected_year}")
-    if show_anim_map and {"iso3c","Year","Score"}.issubset(data.columns):
-        try:
-            anim_df = data.groupby(["Year","Country","iso3c"], as_index=False).agg({"Score":"mean","Incidents":"sum","Fatalities":"sum"})
-            anim_df = anim_df.sort_values("Year")
-            map_fig = px.choropleth(anim_df, locations="iso3c", color="Score", hover_name="Country",
-                                     animation_frame="Year", color_continuous_scale=px.colors.sequential.Tealgrn,
-                                     projection="natural earth")
-            map_fig.update_layout(margin=dict(l=0,r=0,t=10,b=0))
-            st.plotly_chart(map_fig, use_container_width=True)
-        except Exception as e:
-            st.error("Animated map failed: " + str(e))
-    else:
-        map_df = df.groupby(["Country","iso3c"], as_index=False).agg({"Score":"mean","Incidents":"sum","Fatalities":"sum"}) if {"Country","iso3c"}.issubset(df.columns) else pd.DataFrame()
-        if map_df.empty:
-            st.info("No map data for selected filters.")
-        else:
-            fig_map_static = px.choropleth(map_df, locations="iso3c", color="Score", hover_name="Country",
-                                           color_continuous_scale=px.colors.sequential.Tealgrn, projection="natural earth")
-            fig_map_static.update_layout(margin=dict(l=0,r=0,t=10,b=0))
-            st.plotly_chart(fig_map_static, use_container_width=True)
+    st.subheader(f"🗺 Global Terrorism Score — {selected_year}")
+    try:
+        map_df = df.groupby(["Country","iso3c"], as_index=False).agg({
+            "Score":"mean","Incidents":"sum","Fatalities":"sum"
+        })
+        fig = px.choropleth(
+            map_df, locations="iso3c", color="Score", hover_name="Country",
+            color_continuous_scale=px.colors.sequential.Tealgrn
+        )
+        fig.update_layout(margin=dict(t=5,b=0,l=0,r=0))
+        st.plotly_chart(fig, use_container_width=True)
+    except:
+        st.info("Map data missing.")
     st.markdown("</div>", unsafe_allow_html=True)
 
-    # Two-axis trend
+    # Trend
     st.markdown("<div class='card'>", unsafe_allow_html=True)
-    st.subheader("📈 Trend: Incidents vs Fatalities (multi-year)")
-    if "Year" in data.columns:
-        trend = data.groupby("Year").agg({"Incidents":"sum","Fatalities":"sum","Score":"mean"}).reset_index()
-        fig_tr = go.Figure()
-        fig_tr.add_trace(go.Bar(x=trend["Year"], y=trend["Incidents"], name="Incidents", marker_color="#66bb6a"))
-        fig_tr.add_trace(go.Scatter(x=trend["Year"], y=trend["Fatalities"], name="Fatalities", marker_color="#00796b", yaxis="y2"))
-        fig_tr.update_layout(yaxis=dict(title="Incidents"), yaxis2=dict(title="Fatalities", overlaying="y", side="right"),
-                             legend=dict(orientation="h"), margin=dict(t=10,b=0))
-        st.plotly_chart(fig_tr, use_container_width=True)
-    else:
-        st.info("Year column not available.")
+    st.subheader("📈 Multi-Year Trend")
+    trend = data.groupby("Year").agg({"Incidents":"sum","Fatalities":"sum"}).reset_index()
+    figT = go.Figure()
+    figT.add_trace(go.Bar(x=trend["Year"], y=trend["Incidents"], name="Incidents", marker_color="#66bb6a"))
+    figT.add_trace(go.Scatter(x=trend["Year"], y=trend["Fatalities"], name="Fatalities", yaxis="y2"))
+    figT.update_layout(yaxis=dict(title="Incidents"),
+                       yaxis2=dict(title="Fatalities", overlaying="y", side="right"))
+    st.plotly_chart(figT, use_container_width=True)
     st.markdown("</div>", unsafe_allow_html=True)
-
-    # Bubble chart
-    if show_bubble:
-        st.markdown("<div class='card'>", unsafe_allow_html=True)
-        st.subheader("🔵 Fatalities vs Injuries (bubble size = Incidents)")
-        if {"Fatalities","Injuries","Incidents","Country"}.issubset(data.columns):
-            bubble_df = df.groupby("Country", as_index=False).agg({"Fatalities":"sum","Injuries":"sum","Incidents":"sum"})
-            bubble_df = bubble_df[bubble_df["Fatalities"]+bubble_df["Injuries"]>0]
-            if bubble_df.empty:
-                st.info("No bubble data for selected filters.")
-            else:
-                bubble = px.scatter(bubble_df, x="Injuries", y="Fatalities", size="Incidents", hover_name="Country", size_max=40, color="Incidents", color_continuous_scale=px.colors.sequential.Teal)
-                st.plotly_chart(bubble, use_container_width=True)
-        else:
-            st.info("Required columns missing for bubble chart.")
-        st.markdown("</div>", unsafe_allow_html=True)
 
 with right:
-    # Top N bar
+    # Top N
     st.markdown("<div class='card'>", unsafe_allow_html=True)
     st.subheader("🏆 Top Countries by Fatalities")
-    if "Country" in df.columns and "Fatalities" in df.columns:
-        top10 = df.groupby("Country")["Fatalities"].sum().nlargest(top_n).reset_index()
-        if top10.empty:
-            st.info("No data for selected filters.")
-        else:
-            bar = px.bar(top10.sort_values("Fatalities"), x="Fatalities", y="Country", orientation="h", color="Fatalities", color_continuous_scale=px.colors.sequential.Teal)
-            st.plotly_chart(bar, use_container_width=True)
-    else:
-        st.info("No data for this chart.")
+    top10 = df.groupby("Country")["Fatalities"].sum().nlargest(top_n).reset_index()
+    bar = px.bar(top10, x="Fatalities", y="Country", orientation="h",
+                 color="Fatalities", color_continuous_scale=px.colors.sequential.Teal)
+    st.plotly_chart(bar, use_container_width=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
     # Heatmap
     if show_heatmap:
         st.markdown("<div class='card'>", unsafe_allow_html=True)
-        st.subheader("🔥 Heatmap — Year vs Top Countries (Incidents)")
-        if "Year" in data.columns and "Country" in data.columns:
-            top_countries = data.groupby("Country")["Incidents"].sum().nlargest(top_n).index.tolist()
-            heat_df = data[data["Country"].isin(top_countries)].pivot_table(values="Incidents", index="Country", columns="Year", aggfunc="sum").fillna(0)
-            if heat_df.empty:
-                st.info("No data for heatmap.")
-            else:
-                heat = px.imshow(heat_df, labels=dict(x="Year", y="Country", color="Incidents"), text_auto=True, aspect="auto", color_continuous_scale=px.colors.sequential.Mint)
-                st.plotly_chart(heat, use_container_width=True)
-        else:
-            st.info("Year/Country missing.")
+        st.subheader("🔥 Heatmap")
+        top_countries = data.groupby("Country")["Incidents"].sum().nlargest(top_n).index
+        heat_df = data[data["Country"].isin(top_countries)].pivot_table(
+            values="Incidents", index="Country", columns="Year", aggfunc="sum"
+        ).fillna(0)
+        figH = px.imshow(heat_df, text_auto=True, color_continuous_scale=px.colors.sequential.Mint)
+        st.plotly_chart(figH, use_container_width=True)
         st.markdown("</div>", unsafe_allow_html=True)
 
-    # Correlation
-    st.markdown("<div class='card'>", unsafe_allow_html=True)
-    st.subheader("🔬 Correlation (Numeric features)")
-    numeric_cols = [c for c in ["Incidents","Fatalities","Injuries","Hostages","Score","Rank"] if c in data.columns]
-    if len(numeric_cols) >= 2:
-        corr = data[numeric_cols].corr()
-        corr_fig = px.imshow(corr, text_auto=True, color_continuous_scale=px.colors.diverging.BrBG)
-        st.plotly_chart(corr_fig, use_container_width=True)
-    else:
-        st.info("Not enough numeric columns.")
-    st.markdown("</div>", unsafe_allow_html=True)
-
 # -------------------------
-# PREDICTION PANEL - ROLE AWARE
+# PREDICTION PANEL
 # -------------------------
 st.markdown("<div class='card'>", unsafe_allow_html=True)
 st.subheader("🤖 Score Predictor")
 
+feature_cols = ["Incidents","Fatalities","Injuries","Hostages","Rank"]
+for c in feature_cols:
+    if c not in data.columns:
+        data[c] = 0
+
+X = data[feature_cols].fillna(0)
+y = data["Score"].fillna(0)
+
 if role == "admin":
-    # admin can input custom values
     colA, colB = st.columns(2)
     with colA:
-        inc = st.number_input("Incidents", min_value=0, max_value=100000, value=200, key="pred_inc_admin")
-        fat = st.number_input("Fatalities", min_value=0, max_value=100000, value=50, key="pred_fat_admin")
-        inj = st.number_input("Injuries", min_value=0, max_value=100000, value=100, key="pred_inj_admin")
+        inc = st.number_input("Incidents", 0, 100000, 200)
+        fat = st.number_input("Fatalities", 0, 100000, 50)
+        inj = st.number_input("Injuries", 0, 100000, 100)
     with colB:
-        host = st.number_input("Hostages", min_value=0, max_value=10000, value=5, key="pred_host_admin")
-        rank = st.slider("Rank", 1, 300, 50, key="pred_rank_admin")
-    if st.button("Predict (Admin)", key="predict_admin_btn"):
-        # prepare model and predict (respect retrain & n_estim)
-        feature_cols = ["Incidents","Fatalities","Injuries","Hostages","Rank"]
-        for c in feature_cols:
-            if c not in data.columns:
-                data[c] = 0
-        X = data[feature_cols].fillna(0)
-        y = data["Score"].fillna(0) if "Score" in data.columns else pd.Series(np.zeros(len(X)))
-        model = RandomForestRegressor(n_estimators=int(n_estim) if role=="admin" else 150, random_state=42)
-        if retrain:
-            with st.spinner("Retraining model on full dataset..."):
-                model.fit(X, y)
-                st.success("Model retrained.")
-        else:
-            sample_n = min(2000, len(X))
-            if sample_n > 0:
-                Xs = X.sample(sample_n, random_state=42)
-                ys = y.loc[Xs.index]
-                model.fit(Xs, ys)
+        host = st.number_input("Hostages", 0, 10000, 5)
+        rank = st.slider("Rank", 1, 300, 50)
+
+    if st.button("Predict (Admin)"):
+        model = RandomForestRegressor(n_estimators=n_estim, random_state=42)
+        sample_n = min(2000, len(X))
+        Xs = X.sample(sample_n, random_state=42)
+        ys = y.loc[Xs.index]
+        model.fit(Xs, ys)
         pred = model.predict([[inc, fat, inj, host, rank]])[0]
-        st.markdown(f"<div style='font-size:20px; color:#0b8043; font-weight:700'>🌋 Predicted Score: {pred:.2f}</div>", unsafe_allow_html=True)
+        st.success(f"Predicted Score: {pred:.2f}")
 
 else:
-    # viewer: cannot change numbers; provide preset scenarios and readonly predict
-    st.markdown("<div class='small'>Viewer mode — choose a predefined scenario to see predicted score.</div>", unsafe_allow_html=True)
     scenarios = {
-        "Low (Minor incidents)": {"Incidents":10, "Fatalities":0, "Injuries":1, "Hostages":0, "Rank":100},
-        "Medium (Localized spike)": {"Incidents":500, "Fatalities":20, "Injuries":50, "Hostages":2, "Rank":60},
-        "High (Major spike)": {"Incidents":5000, "Fatalities":300, "Injuries":800, "Hostages":20, "Rank":10},
-        "Custom (Admin only)": {"Incidents":0, "Fatalities":0, "Injuries":0, "Hostages":0, "Rank":50}
+        "Low": [10,0,1,0,100],
+        "Medium": [500,20,50,2,60],
+        "High": [5000,300,800,20,10]
     }
-    sel = st.selectbox("Scenario", list(scenarios.keys()), key="viewer_scenario")
-    btn = st.button("Show Prediction (Viewer)", key="viewer_predict_btn")
-    if btn:
+    sel = st.selectbox("Scenario", scenarios.keys())
+    if st.button("Predict (Viewer)"):
         vals = scenarios[sel]
-        # prepare model (no retrain for viewer)
-        feature_cols = ["Incidents","Fatalities","Injuries","Hostages","Rank"]
-        for c in feature_cols:
-            if c not in data.columns:
-                data[c] = 0
-        X = data[feature_cols].fillna(0)
-        y = data["Score"].fillna(0) if "Score" in data.columns else pd.Series(np.zeros(len(X)))
         model = RandomForestRegressor(n_estimators=150, random_state=42)
-        # quick train on sample
-        sample_n = min(1500, len(X))
-        if sample_n > 0:
-            Xs = X.sample(sample_n, random_state=42)
-            ys = y.loc[Xs.index]
-            model.fit(Xs, ys)
-            pred = model.predict([[vals["Incidents"], vals["Fatalities"], vals["Injuries"], vals["Hostages"], vals["Rank"]]])[0]
-            st.markdown(f"<div style='font-size:20px; color:#0b8043; font-weight:700'>🌋 Predicted Score: {pred:.2f}</div>", unsafe_allow_html=True)
-        else:
-            st.warning("Not enough data to produce prediction.")
+        Xs = X.sample(min(1500,len(X)), random_state=42)
+        ys = y.loc[Xs.index]
+        model.fit(Xs, ys)
+        pred = model.predict([vals])[0]
+        st.success(f"Predicted Score: {pred:.2f}")
 
-st.markdown("</div>", unsafe_allow_html=True)
-
-# -------------------------
-# ADMIN-ONLY PANEL (controls & download)
-# -------------------------
-if role == "admin":
-    st.markdown("<div class='card'>", unsafe_allow_html=True)
-    st.subheader("⚙️ Admin Controls")
-    st.write("You can download the full dataset, retrain model, and change top-N for charts from sidebar.")
-    # full data download
-    csv_bytes = data.to_csv(index=False).encode()
-    st.download_button("Download full dataset (CSV)", csv_bytes, file_name="gti_cleaned_full.csv", mime="text/csv", key="admin_dl_full")
-    st.markdown("</div>", unsafe_allow_html=True)
-
-# -------------------------
-# DOWNLOAD FILTERED CSV (all roles)
-# -------------------------
-st.markdown("<div class='card'>", unsafe_allow_html=True)
-st.subheader("⬇️ Export Filtered Data")
-if not df.empty:
-    csvb = df.to_csv(index=False).encode()
-    st.download_button("Download filtered CSV", csvb, file_name=f"gtd_filtered_{selected_year}.csv", mime="text/csv", key="dl_filtered_em")
-else:
-    st.info("No filtered data to download.")
-st.markdown("</div>", unsafe_allow_html=True)
-
-# -------------------------
-# AUTO INSIGHTS (all roles)
-# -------------------------
-st.markdown("<div class='card'>", unsafe_allow_html=True)
-st.subheader("🧠 Quick Insights")
-colA, colB, colC = st.columns(3)
-with colA:
-    top_sel = df.groupby("Country")["Incidents"].sum().idxmax() if (not df.empty and "Country" in df.columns) else "N/A"
-    st.markdown(f"**Top (selected year)**\n\n{top_sel}")
-with colB:
-    spike = int(data.groupby("Year")["Incidents"].sum().idxmax()) if "Year" in data.columns else "N/A"
-    st.markdown(f"**Year with spike**\n\n{spike}")
-with colC:
-    avg_f = data["Fatalities"].mean() if "Fatalities" in data.columns else 0
-    st.markdown(f"**Avg Fatalities (all years)**\n\n{avg_f:.1f}")
 st.markdown("</div>", unsafe_allow_html=True)
 
 # -------------------------
 # FOOTER
 # -------------------------
-st.markdown("<div style='text-align:center; color:#27664b; padding:10px; font-size:13px;'>✨ © 2025 Vaishnavi Raut — Emerald Matrix Dashboard</div>", unsafe_allow_html=True)
+st.markdown("<div style='text-align:center; color:#27664b; padding:10px;'>✨ © 2025 Vaishnavi Raut — Emerald Matrix Dashboard</div>", unsafe_allow_html=True)
