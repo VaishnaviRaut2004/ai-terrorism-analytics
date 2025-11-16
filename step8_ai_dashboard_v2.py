@@ -1,7 +1,7 @@
-# step8_ai_dashboard_v3.py
+# step8_ai_dashboard_v2.py
 # AI-Powered Terrorism Analytics — PIN Auth + Full Dashboard (Stable)
 # Author: Redesigned for Vaishnavi Raut
-# Run: streamlit run step8_ai_dashboard_v3.py
+# Run: streamlit run step8_ai_dashboard_v2.py
 
 import streamlit as st
 import pandas as pd
@@ -11,7 +11,6 @@ import plotly.graph_objects as go
 from sklearn.ensemble import RandomForestRegressor
 from pathlib import Path
 import pycountry
-import os
 
 # -------------------------
 # PAGE CONFIG
@@ -19,25 +18,26 @@ import os
 st.set_page_config(page_title="AI Terrorism Analytics — Premium", layout="wide", page_icon="🌍")
 
 # -------------------------
-# PIN AUTH (Option B) - Simple, stable, no external auth libs
+# PIN AUTH (Option 2) - Simple, stable, no external auth libs
 # -------------------------
 # NOTE: For production, store PINs securely (not in plain text).
 USERS = {
-    "vaishnavi": {"name": "Vaishnavi Raut", "pin": "1234"},
+    "vaishnavi": {"name": "Vaishnavi Raut", "pin": "1981"},
     "demo": {"name": "Demo User", "pin": "0000"}
 }
 
-def init_session_state():
-    if "auth_ok" not in st.session_state:
-        st.session_state.auth_ok = False
-    if "username" not in st.session_state:
-        st.session_state.username = None
-    if "login_attempts" not in st.session_state:
-        st.session_state.login_attempts = 0
-
-init_session_state()
+# Initialize session state keys safely
+if "auth_ok" not in st.session_state:
+    st.session_state.auth_ok = False
+if "username" not in st.session_state:
+    st.session_state.username = None
+if "login_attempts" not in st.session_state:
+    st.session_state.login_attempts = 0
+if "login_message" not in st.session_state:
+    st.session_state.login_message = ""
 
 def login_widget():
+    """Render login fields and handle login without experimental_rerun."""
     st.markdown(
         """
         <div style="display:flex; gap:12px; align-items:center;">
@@ -48,48 +48,50 @@ def login_widget():
         unsafe_allow_html=True
     )
     col_user, col_pin, col_btn = st.columns([2,1,1])
-    with col_user:
-        user_input = st.text_input("Username", key="login_user_input", placeholder="vaishnavi")
-    with col_pin:
-        pin_input = st.text_input("PIN", key="login_pin_input", type="password", placeholder="1234")
-    with col_btn:
-        if st.button("Login", key="login_button"):
-            st.session_state.login_attempts += 1
-            if user_input in USERS and pin_input == USERS[user_input]["pin"]:
-                st.session_state.auth_ok = True
-                st.session_state.username = user_input
-                st.success(f"Welcome, {USERS[user_input]['name']}!")
-                # small delay so message shows before rerun
-                st.experimental_rerun()
-            else:
-                st.error("Invalid username or PIN.")
-                if st.session_state.login_attempts >= 5:
-                    st.warning("Too many failed attempts. Please restart the app.")
+    user_input = st.text_input("Username", key="login_user_input", placeholder="vaishnavi")
+    pin_input = st.text_input("PIN", key="login_pin_input", type="password", placeholder="1981")
+
+    if st.button("Login", key="login_button"):
+        st.session_state.login_attempts += 1
+        # check credentials
+        if user_input in USERS and pin_input == USERS[user_input]["pin"]:
+            st.session_state.auth_ok = True
+            st.session_state.username = user_input
+            st.session_state.login_message = f"Welcome, {USERS[user_input]['name']}!"
+            st.success(st.session_state.login_message)
+            # do NOT call experimental_rerun; simply proceed — dashboard will render because auth_ok True
+        else:
+            st.session_state.login_message = "Invalid username or PIN."
+            st.error(st.session_state.login_message)
+            if st.session_state.login_attempts >= 5:
+                st.warning("Too many failed attempts. Please restart the app or try later.")
     st.markdown("---")
 
 def logout():
     st.session_state.auth_ok = False
     st.session_state.username = None
-    st.experimental_rerun()
+    st.session_state.login_message = ""
+    # do not call rerun; page will now show login on next interaction
 
 # -------------------------
 # If not logged in: show login panel and stop
 # -------------------------
 if not st.session_state.auth_ok:
-    # Minimal elegant login page
     st.markdown(
         """
         <style>
-        .login-box { max-width:760px; margin:30px auto; padding:18px; border-radius:12px;
+        .login-box { max-width:820px; margin:30px auto; padding:18px; border-radius:12px;
                     background: linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.02));
                     border:1px solid rgba(255,255,255,0.03); box-shadow: 0 10px 30px rgba(0,0,0,0.6);}
+        .login-note { color:#c0c9d6; margin-top:6px; }
         </style>
-        """
-    , unsafe_allow_html=True)
+        """,
+        unsafe_allow_html=True
+    )
 
     st.markdown("<div class='login-box'>", unsafe_allow_html=True)
     st.markdown("<h1 style='color:#E6B85A; margin:0;'>🌍 AI-Powered Terrorism Analytics</h1>", unsafe_allow_html=True)
-    st.markdown("<p style='color:#c0c9d6; margin-top:6px;'>Premium dashboard — enter credentials to continue.</p>", unsafe_allow_html=True)
+    st.markdown("<p class='login-note'>Premium dashboard — enter credentials to continue.</p>", unsafe_allow_html=True)
     login_widget()
     st.markdown("</div>", unsafe_allow_html=True)
     st.stop()
@@ -97,7 +99,7 @@ if not st.session_state.auth_ok:
 # -------------------------
 # AUTHENTICATED: show dashboard
 # -------------------------
-# Header / topbar
+# Header / topbar (CSS)
 st.markdown(
     """
     <style>
@@ -130,15 +132,12 @@ st.markdown(f"""
   <div style="display:flex; gap:10px; align-items:center;">
     <div class="chip">Data: gti_cleaned.csv</div>
     <div class="chip">Theme: Black + Gold</div>
-    <form action="#" style="margin:0;">
-      <!-- logout button replaced with Streamlit button below -->
-    </form>
   </div>
 </div>
 """, unsafe_allow_html=True)
 
-# logout button (unique key)
-if st.button("Logout", key="logout_button_unique"):
+# Logout button (unique key)
+if st.button("Logout", key="logout_button_v2"):
     logout()
 
 # -------------------------
@@ -199,18 +198,18 @@ with st.sidebar:
     years = []
     if "Year" in data.columns:
         years = sorted(data["Year"].dropna().astype(int).unique().tolist())
-    selected_year = st.selectbox("Year", years, index=len(years)-1 if years else 0, key="sidebar_year_select")
+    selected_year = st.selectbox("Year", years, index=len(years)-1 if years else 0, key="sidebar_year_select_v2")
     country_list = ["All"]
     if "Country" in data.columns:
         country_list += sorted(data["Country"].dropna().unique().tolist())
-    selected_country = st.selectbox("Country", country_list, index=0, key="sidebar_country_select")
+    selected_country = st.selectbox("Country", country_list, index=0, key="sidebar_country_select_v2")
     st.markdown("---")
     st.subheader("Display Options")
-    show_trend = st.checkbox("Show multi-year trend", value=True, key="sidebar_trend_check")
-    show_3d = st.checkbox("Enable 3D scatter (may be slower)", value=False, key="sidebar_3d_check")
+    show_trend = st.checkbox("Show multi-year trend", value=True, key="sidebar_trend_check_v2")
+    show_3d = st.checkbox("Enable 3D scatter (may be slower)", value=False, key="sidebar_3d_check_v2")
     st.markdown("---")
     st.subheader("Model")
-    retrain = st.checkbox("Retrain full model (slow)", value=False, key="sidebar_retrain_check")
+    retrain = st.checkbox("Retrain full model (slow)", value=False, key="sidebar_retrain_check_v2")
     st.markdown("<div class='small'>Tip: retrain only if data/parameters changed.</div>", unsafe_allow_html=True)
 
 # apply filters safely
@@ -352,12 +351,12 @@ st.subheader("🤖 Quick Score Estimator")
 
 colp1, colp2 = st.columns([1,1])
 with colp1:
-    i = st.number_input("Incidents", min_value=0, max_value=100000, value=200, key="pred_incidents")
-    f = st.number_input("Fatalities", min_value=0, max_value=100000, value=50, key="pred_fatalities")
-    inj = st.number_input("Injuries", min_value=0, max_value=100000, value=100, key="pred_injuries")
+    i = st.number_input("Incidents", min_value=0, max_value=100000, value=200, key="pred_incidents_v2")
+    f = st.number_input("Fatalities", min_value=0, max_value=100000, value=50, key="pred_fatalities_v2")
+    inj = st.number_input("Injuries", min_value=0, max_value=100000, value=100, key="pred_injuries_v2")
 with colp2:
-    h = st.number_input("Hostages", min_value=0, max_value=10000, value=5, key="pred_hostages")
-    r = st.slider("Rank", 1, 300, 50, key="pred_rank")
+    h = st.number_input("Hostages", min_value=0, max_value=10000, value=5, key="pred_hostages_v2")
+    r = st.slider("Rank", 1, 300, 50, key="pred_rank_v2")
 
 feature_cols = ["Incidents","Fatalities","Injuries","Hostages","Rank"]
 X_all = data.reindex(columns=feature_cols).fillna(0)
@@ -384,7 +383,7 @@ else:
     except Exception as e:
         st.error(f"Model training failed: {e}")
 
-if st.button("Predict Score", key="predict_button_unique"):
+if st.button("Predict Score", key="predict_button_v2"):
     if not model_trained:
         st.error("Model not trained. Toggle retrain or try again.")
     else:
