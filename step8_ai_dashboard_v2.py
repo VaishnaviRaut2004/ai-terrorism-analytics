@@ -16,7 +16,7 @@ import time
 # -------------------------
 # Page config
 # -------------------------
-st.set_page_config(page_title="Oceanic Pro — Terrorism Analytics", layout="wide", page_icon="🌊")
+st.set_page_config(page_title="Terrorism Analytics", layout="wide", page_icon="🌊")
 
 # -------------------------
 # Users
@@ -475,3 +475,4 @@ st.markdown("</div>", unsafe_allow_html=True)
 
 # Footer
 st.markdown("<div style='text-align:center; color:#9fdde0; padding:10px;'>✨ © 2025 Vaishnavi Raut — Oceanic Pro (Deep)</div>", unsafe_allow_html=True)
+
