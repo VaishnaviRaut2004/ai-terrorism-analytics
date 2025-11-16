@@ -1,4 +1,4 @@
-Country,Year,Incidents,Fatalities,Injuries,Hostages,Score,Rank,ISO3
+Country,Year,Incidents,Fatalities,Injuries,Hostages,Score,Rank,iso3c
 Iraq,2012,1288,2086,5050,16,9.599967028,1,IRQ
 Pakistan,2012,638,1322,2297,160,9.152620244,2,PAK
 Afghanistan,2012,507,1511,2612,67,9.134264555,3,AFG
@@ -1792,3 +1792,4 @@ Timor-Leste,2022,0,0,0,0,0,93,
 Trinidad and Tobago,2022,0,0,0,0,0,93,
 Zambia,2022,0,0,0,0,0,93,
 Zimbabwe,2022,0,0,0,0,0,93,
+
