@@ -1,7 +1,6 @@
 # step8_ai_dashboard_v2.py
-# Sunset Fusion — Aesthetic Gradient Dashboard (Orange → Pink → Purple)
-# Role-based: Admin (edit) / Viewer (read-only)
-# Author: adapted for Vaishnavi Raut
+# Sunset-inspired UI (no theme name shown) — Role-based dashboard
+# Admin (edit) / Viewer (interactive read-only)
 # Run: streamlit run step8_ai_dashboard_v2.py
 
 import streamlit as st
@@ -17,14 +16,14 @@ import time
 # -------------------------
 # Page config
 # -------------------------
-st.set_page_config(page_title="Sunset Fusion — Terrorism Analytics", layout="wide", page_icon="🌅")
+st.set_page_config(page_title="Terrorism Analytics Dashboard", layout="wide", page_icon="📊")
 
 # -------------------------
-# Users (PIN-based) - change as needed
+# Credentials (PIN-based)
 # -------------------------
 USERS = {
     "vaishnavi": {"name": "Vaishnavi Raut", "pin": "1981", "role": "admin"},
-    "viewer": {"name": "Read Only", "pin": "0000", "role": "viewer"},
+    "viewer": {"name": "Viewer", "pin": "0000", "role": "viewer"},
 }
 
 # -------------------------
@@ -38,14 +37,14 @@ if "login_attempts" not in st.session_state:
     st.session_state.login_attempts = 0
 
 # -------------------------
-# Login UI
+# Login widget (gradient background)
 # -------------------------
 def login_widget():
     st.markdown(
         """
         <div style="display:flex; gap:12px; align-items:center;">
-          <h2 style="margin:0; color:#FF6F3C;">🔐 Sign in</h2>
-          <div style="color:#FF9AB8; margin-left:6px; font-size:13px;">(username & PIN)</div>
+          <h2 style="margin:0; color:#FFF7F2;">🔐 Sign in</h2>
+          <div style="color:#FFD9E6; margin-left:6px; font-size:13px;">(username & PIN)</div>
         </div>
         """,
         unsafe_allow_html=True,
@@ -72,75 +71,99 @@ def logout():
     st.session_state.auth_ok = False
     st.session_state.username = None
 
-# Show login screen if not authenticated
+# Show login if not authenticated (with gradient)
 if not st.session_state.auth_ok:
     st.markdown(
         """
         <style>
-        .login-wrap { max-width:950px; margin:40px auto; padding:24px; border-radius:14px;
-            background: linear-gradient(135deg, rgba(255,111,60,0.06), rgba(138,63,252,0.04));
-            border: 1px solid rgba(138,63,252,0.06); box-shadow: 0 12px 40px rgba(20,10,40,0.6);}
-        .title { color: #FF6F3C; margin:0; font-weight:700; font-size:28px; }
-        .subtitle { color:#FF9AB8; margin-top:6px; }
+        .login-outer {
+            min-height:480px;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            padding:40px 16px;
+            background: radial-gradient(circle at 10% 20%, rgba(255,111,60,0.12), transparent 8%),
+                        linear-gradient(135deg, #2A0A3A 0%, #8A3FFC 35%, #FF5C9E 65%, #FF6F3C 100%);
+        }
+        .login-card {
+            width:920px;
+            border-radius:14px;
+            padding:28px;
+            backdrop-filter: blur(6px);
+            background: rgba(255,247,242,0.04);
+            border: 1px solid rgba(255,255,255,0.04);
+            box-shadow: 0 12px 40px rgba(10,10,20,0.6);
+        }
+        .login-title { font-size:32px; color: #FFF7F2; margin:0; font-weight:300; }
+        .login-sub { color:#FFD9E6; margin-top:6px; font-size:14px; }
         </style>
+        <div class="login-outer">
+          <div class="login-card">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <div>
+                <h1 class="login-title">Terrorism Analytics Dashboard</h1>
+                <div class="login-sub">Secure access — sign in to continue</div>
+              </div>
+            </div>
+            <hr style="border:0.5px solid rgba(255,255,255,0.03); margin:14px 0;">
         """,
         unsafe_allow_html=True,
     )
-    st.markdown("<div class='login-wrap'>", unsafe_allow_html=True)
-    st.markdown("<h1 class='title'>🌅 Sunset Fusion — Secure Dashboard</h1>", unsafe_allow_html=True)
-    st.markdown("<div class='subtitle'>Aesthetic gradient — sign in to continue (admin / viewer)</div>", unsafe_allow_html=True)
-    st.write("")
     login_widget()
-    st.markdown("</div>", unsafe_allow_html=True)
+    st.markdown("</div></div>", unsafe_allow_html=True)
     st.stop()
 
 # -------------------------
-# After login: role
+# Post-login role
 # -------------------------
 current_user = st.session_state.username
 role = USERS.get(current_user, {}).get("role", "viewer")
 
 # -------------------------
-# UI Theme CSS (Sunset Fusion)
+# Global CSS (large, light fonts and aesthetic)
 # -------------------------
 st.markdown(
     """
     <style>
     :root{
-      --bg1: #2A0A3A;   /* deep violet */
-      --bg2: #FF6F3C;   /* orange */
-      --accent1: #FF6F3C; /* orange */
-      --accent2: #FF5C9E; /* coral pink */
-      --accent3: #8A3FFC; /* magenta purple */
-      --card: rgba(255,247,242,0.04);
+      --bg1: #2A0A3A;
+      --bg2: #8A3FFC;
+      --accentA: #FF6F3C;
+      --accentB: #FF5C9E;
       --muted: #FFD9E6;
     }
-    .stApp { background: linear-gradient(135deg, #2A0A3A 0%, #8A3FFC 30%, #FF5C9E 60%, #FF6F3C 100%); color: #FFF7F2; font-family: Inter, ui-sans-serif, system-ui; }
-    .topbar { padding:12px 18px; margin-bottom:12px; border-radius:10px; display:flex; justify-content:space-between; align-items:center;
-              background: linear-gradient(90deg, rgba(255,255,255,0.03), rgba(255,255,255,0.02)); border:1px solid rgba(255,255,255,0.03); backdrop-filter: blur(4px); }
-    .card { background: var(--card); border-radius:12px; padding:12px; margin-bottom:12px; border:1px solid rgba(255,255,255,0.03); }
-    .muted { color:var(--muted); font-size:13px; }
-    .small { font-size:12px; color:#FFD9E6; }
-    .btn { background: linear-gradient(90deg, var(--accent1), var(--accent2)); color:#2A0A3A; padding:8px 12px; border-radius:10px; font-weight:600; border:none; }
-    footer { color:#FFEDE8; padding:8px; text-align:center; }
+    .stApp { background: linear-gradient(180deg, #120215, #1c0530); color: #FFF7F2; font-family: Inter, ui-sans-serif, system-ui; }
+    .topbar {
+      padding:14px 20px; margin-bottom:14px; border-radius:10px;
+      background: linear-gradient(90deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+      border:1px solid rgba(255,255,255,0.02);
+    }
+    h1.main-title { font-size:32px; font-weight:300; margin:0; color:#FFF7F2; }
+    .muted { color: #FFD9E6; font-size:14px; }
+    .card { background: rgba(255,247,242,0.03); padding:14px; border-radius:12px; margin-bottom:12px; border:1px solid rgba(255,255,255,0.02); }
+    .metric-title { font-size:18px; font-weight:600; margin:0; color:#FFF7F2; }
+    .metric-sub { font-size:13px; color:#FFD9E6; }
+    .small { font-size:13px; color:#FFD9E6; }
+    .btn { background: linear-gradient(90deg, var(--accentA), var(--accentB)); color:#210215; padding:8px 12px; border-radius:10px; font-weight:600; border:none; }
+    footer { color:#FFD9E6; padding:10px; text-align:center; }
     </style>
     """,
     unsafe_allow_html=True,
 )
 
 # -------------------------
-# Header / Topbar
+# Topbar (generic title, no theme name)
 # -------------------------
 st.markdown(
     f"""
     <div class="topbar">
-      <div>
-        <h2 style="margin:0; color:#FFF7F2">🌅 Sunset Fusion — Terrorism Analytics</h2>
+      <div style="display:flex; flex-direction:column;">
+        <h1 class="main-title">Terrorism Analytics Dashboard</h1>
         <div class="muted">User: <b>{USERS[current_user]['name']}</b> • Role: <b>{role.upper()}</b></div>
       </div>
-      <div style="display:flex; gap:10px; align-items:center;">
-        <div class="small">Data: gti_cleaned.csv</div>
-        <div class="small">Theme: Sunset Fusion</div>
+      <div style="display:flex; gap:12px; align-items:center;">
+        <div class="small">Data file: gti_cleaned.csv</div>
+        <div class="small">Prepared for reporting & analysis</div>
       </div>
     </div>
     """,
@@ -153,11 +176,11 @@ if st.button("Logout", key="logout_btn"):
     st.experimental_rerun()
 
 # -------------------------
-# Load dataset
+# Load data (safe)
 # -------------------------
 DATA_FILE = "gti_cleaned.csv"
 if not Path(DATA_FILE).exists():
-    st.error("❌ Dataset 'gti_cleaned.csv' not found. Please add it to the app folder.")
+    st.error("❌ Dataset 'gti_cleaned.csv' not found. Upload it to the app folder.")
     st.stop()
 
 @st.cache_data
@@ -167,7 +190,7 @@ def load_data(path):
 data = load_data(DATA_FILE)
 
 # -------------------------
-# Data cleaning helpers
+# Ensure iso3c and numeric columns are safe
 # -------------------------
 def safe_iso3(name):
     try:
@@ -186,7 +209,6 @@ if "iso3c" not in data.columns or data["iso3c"].isnull().any():
     else:
         data["iso3c"] = None
 
-# numeric conversion
 for c in ["Incidents", "Fatalities", "Injuries", "Hostages", "Score", "Rank", "Year"]:
     if c in data.columns:
         data[c] = pd.to_numeric(data[c], errors="coerce")
@@ -195,32 +217,39 @@ for c in ["Incidents", "Fatalities", "Injuries", "Hostages", "Score", "Rank"]:
         data[c] = data[c].fillna(0)
 
 # -------------------------
-# Sidebar - fixed dropdown lists (sorted)
+# Sidebar (fixed dropdown lists for Year & Country) - viewers can select
 # -------------------------
 with st.sidebar:
     st.markdown("<div class='card'>", unsafe_allow_html=True)
     st.subheader("Filters & Settings")
-
     years = sorted(list(map(int, data["Year"].dropna().unique()))) if "Year" in data.columns else []
     if years:
-        selected_year = st.selectbox("Year", years, index=len(years) - 1, key="sel_year", disabled=(role == "viewer"))
+        selected_year = st.selectbox("Year", years, index=len(years) - 1, key="sel_year", disabled=False)
     else:
         selected_year = None
 
     countries = sorted(data["Country"].dropna().unique().tolist()) if "Country" in data.columns else []
     country_options = ["All"] + countries
-    selected_country = st.selectbox("Country", country_options, index=0, key="sel_country", disabled=(role == "viewer"))
+    selected_country = st.selectbox("Country", country_options, index=0, key="sel_country", disabled=False)
 
     st.markdown("---")
-    st.subheader("Visualizations")
-    top_n = st.slider("Top N countries", 5, 30, 10, key="top_n", disabled=(role == "viewer"))
-    show_anim_map = st.checkbox("Animated map (year)", value=False, key="show_anim", disabled=(role == "viewer"))
-    show_bubble = st.checkbox("Bubble chart", value=True, key="show_bubble", disabled=(role == "viewer"))
-    show_heatmap = st.checkbox("Heatmap", value=True, key="show_heat", disabled=(role == "viewer"))
-    show_pie = st.checkbox("Show pie (attack types)", value=False, key="show_pie", disabled=(role == "viewer"))
+    st.subheader("Visual Options")
+    if role == "admin":
+        top_n = st.slider("Top N countries", 5, 30, 10, key="top_n")
+        show_anim = st.checkbox("Animated map (year)", value=False, key="show_anim")
+        show_bubble = st.checkbox("Bubble chart", value=True, key="show_bubble")
+        show_heat = st.checkbox("Heatmap", value=True, key="show_heat")
+        show_pie = st.checkbox("Show pie (attack types)", value=False, key="show_pie")
+    else:
+        # viewers can view but not change visualization defaults (top_n fixed read-only visually)
+        top_n = st.slider("Top N countries", 5, 30, 10, key="top_n_view", disabled=True)
+        show_anim = st.checkbox("Animated map (year)", value=False, key="show_anim_view", disabled=True)
+        show_bubble = st.checkbox("Bubble chart", value=True, key="show_bubble_view", disabled=True)
+        show_heat = st.checkbox("Heatmap", value=True, key="show_heat_view", disabled=True)
+        show_pie = st.checkbox("Show pie (attack types)", value=False, key="show_pie_view", disabled=True)
 
     st.markdown("---")
-    st.subheader("Model (Admin only)")
+    st.subheader("Model Controls")
     if role == "admin":
         retrain = st.checkbox("Retrain model (slow)", value=False, key="retrain")
         n_estim = st.number_input("RF n_estimators", min_value=10, max_value=500, value=150, key="n_estim")
@@ -244,56 +273,48 @@ if selected_country and selected_country != "All":
     df = df[df["Country"] == selected_country]
 
 # -------------------------
-# Top metrics (floating cards)
+# Top metrics (large, light font)
 # -------------------------
-c1, c2, c3, c4 = st.columns([2, 1, 1, 1])
-with c1:
+col1, col2, col3, col4 = st.columns([2, 1, 1, 1])
+with col1:
     st.markdown("<div class='card'>", unsafe_allow_html=True)
     try:
         top_country_all = data.groupby("Country")["Incidents"].sum().idxmax()
     except Exception:
         top_country_all = "N/A"
-    st.markdown(f"<div style='font-size:18px; font-weight:700; color:#FFF7F2'>{top_country_all}</div>", unsafe_allow_html=True)
-    st.markdown("<div class='small'>Most affected country (all years)</div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='metric-title'>{top_country_all}</div><div class='metric-sub'>Most affected country (all years)</div>", unsafe_allow_html=True)
     st.markdown("</div>", unsafe_allow_html=True)
-
-with c2:
+with col2:
     st.markdown("<div class='card'>", unsafe_allow_html=True)
     try:
         deadliest_year = int(data.groupby("Year")["Fatalities"].sum().idxmax())
     except Exception:
         deadliest_year = "N/A"
-    st.markdown(f"<div style='font-size:16px; font-weight:600'>{deadliest_year}</div>", unsafe_allow_html=True)
-    st.markdown("<div class='small'>Deadliest year</div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='metric-title'>{deadliest_year}</div><div class='metric-sub'>Deadliest year</div>", unsafe_allow_html=True)
     st.markdown("</div>", unsafe_allow_html=True)
-
-with c3:
+with col3:
     st.markdown("<div class='card'>", unsafe_allow_html=True)
     avg_score = data["Score"].mean() if "Score" in data.columns else 0
-    st.markdown(f"<div style='font-size:16px; font-weight:600'>{avg_score:.2f}</div>", unsafe_allow_html=True)
-    st.markdown("<div class='small'>Average Score</div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='metric-title'>{avg_score:.2f}</div><div class='metric-sub'>Average Score</div>", unsafe_allow_html=True)
     st.markdown("</div>", unsafe_allow_html=True)
-
-with c4:
+with col4:
     st.markdown("<div class='card'>", unsafe_allow_html=True)
     country_count = data["Country"].nunique() if "Country" in data.columns else 0
-    st.markdown(f"<div style='font-size:16px; font-weight:600'>{country_count}</div>", unsafe_allow_html=True)
-    st.markdown("<div class='small'>Countries analyzed</div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='metric-title'>{country_count}</div><div class='metric-sub'>Countries analyzed</div>", unsafe_allow_html=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
 st.markdown("<br/>", unsafe_allow_html=True)
 
 # -------------------------
-# Main layout: map & charts
+# Main layout: map and visualizations
 # -------------------------
 left, right = st.columns((2, 1))
-
 with left:
     st.markdown("<div class='card'>", unsafe_allow_html=True)
-    st.subheader(f"🗺️ Global Terrorism Score — {selected_year if selected_year else 'All Years'}")
+    st.subheader(f"🗺️ Global Terrorism — {selected_year if selected_year else 'All Years'}")
 
     try:
-        if show_anim_map and {"Year", "iso3c", "Score"}.issubset(data.columns):
+        if show_anim and {"Year", "iso3c", "Score"}.issubset(data.columns):
             anim_df = data.groupby(["Year", "Country", "iso3c"], as_index=False).agg({"Score": "mean", "Incidents": "sum", "Fatalities": "sum"})
             anim_df = anim_df.sort_values("Year")
             fig_map = px.choropleth(anim_df, locations="iso3c", color="Score", hover_name="Country",
@@ -313,7 +334,7 @@ with left:
 
     st.markdown("</div>", unsafe_allow_html=True)
 
-    # Trend chart (dual axis)
+    # Multi-year trend (dual axis)
     st.markdown("<div class='card'>", unsafe_allow_html=True)
     st.subheader("📈 Incidents vs Fatalities (Multi-year)")
     if "Year" in data.columns:
@@ -325,7 +346,7 @@ with left:
             yaxis=dict(title="Incidents"),
             yaxis2=dict(title="Fatalities", overlaying="y", side="right"),
             legend=dict(orientation="h"),
-            margin=dict(t=10, b=0)
+            margin=dict(t=10, b=0),
         )
         st.plotly_chart(fig_tr, use_container_width=True)
     else:
@@ -362,7 +383,7 @@ with right:
         st.info("No data for this chart.")
     st.markdown("</div>", unsafe_allow_html=True)
 
-    if show_heatmap:
+    if show_heat:
         st.markdown("<div class='card'>", unsafe_allow_html=True)
         st.subheader("🔥 Heatmap — Year vs Top Countries (Incidents)")
         if "Year" in data.columns and "Country" in data.columns:
@@ -444,22 +465,20 @@ else:
             st.success(f"Predicted Score: {pred:.2f}")
         else:
             st.warning("Not enough data to generate prediction.")
-
 st.markdown("</div>", unsafe_allow_html=True)
 
 # -------------------------
-# Admin controls & downloads
+# Admin controls & download
 # -------------------------
 if role == "admin":
     st.markdown("<div class='card'>", unsafe_allow_html=True)
     st.subheader("⚙️ Admin Controls")
-    st.write("Download full dataset or adjust model parameters in the sidebar.")
     csv_full = data.to_csv(index=False).encode()
     st.download_button("Download full dataset (CSV)", csv_full, file_name="gti_cleaned_full.csv", mime="text/csv")
     st.markdown("</div>", unsafe_allow_html=True)
 
 # -------------------------
-# Filtered data download
+# Filtered CSV download (all users)
 # -------------------------
 st.markdown("<div class='card'>", unsafe_allow_html=True)
 st.subheader("⬇️ Export Filtered Data")
@@ -487,7 +506,5 @@ with ic:
     st.markdown(f"**Avg Fatalities (all years)**\n\n{avg_f:.1f}")
 st.markdown("</div>", unsafe_allow_html=True)
 
-# -------------------------
-# Footer
-# -------------------------
-st.markdown("<div style='text-align:center; color:#FFEDE8; padding:10px;'>✨ © 2025 Vaishnavi Raut — Sunset Fusion (Aesthetic)</div>", unsafe_allow_html=True)
+# Footer (no theme name)
+st.markdown("<div style='text-align:center; color:#FFD9E6; padding:10px;'>✨ © 2025 Vaishnavi Raut — All rights reserved</div>", unsafe_allow_html=True)
