@@ -11,43 +11,7 @@ import plotly.graph_objects as go
 from sklearn.ensemble import RandomForestRegressor
 from pathlib import Path
 import pycountry
-
-# --- Try importing streamlit-authenticator and a compatible Hasher ---
-try:
-    import streamlit_authenticator as stauth
-except Exception:
-    st.error("streamlit-authenticator is not installed. Run: pip install streamlit-authenticator")
-    st.stop()
-
-# try multiple hasher import paths / APIs to be compatible with different versions
-_hasher_fn = None
-try:
-    # new-ish path in some versions
-    from streamlit_authenticator.utilities.hasher import Hasher
-
-    def _hash_pwds(pwds):
-        return Hasher(pwds).generate()
-
-    _hasher_fn = _hash_pwds
-except Exception:
-    try:
-        # older API: stauth.Hasher
-        def _hash_pwds(pwds):
-            return stauth.Hasher(pwds).generate()
-
-        # test it
-        _ = _hash_pwds(["test"])
-        _hasher_fn = _hash_pwds
-    except Exception:
-        try:
-            # some forks expose lowercase hasher
-            def _hash_pwds(pwds):
-                return stauth.hasher(pwds).generate()
-
-            _ = _hash_pwds(["test"])
-            _hasher_fn = _hash_pwds
-        except Exception:
-            _hasher_fn = None
+import os
 
 # -------------------------
 # PAGE CONFIG
@@ -55,42 +19,90 @@ except Exception:
 st.set_page_config(page_title="Vaishnavi’s AI Terrorism Analytics", layout="wide", page_icon="🌍")
 
 # -------------------------
-# AUTHENTICATION SETUP
+# AUTH: adaptive import + universal hasher
 # -------------------------
-# Users (example). Change/add as needed.
+try:
+    import streamlit_authenticator as stauth
+except Exception:
+    stauth = None
+
+def _ensure_stauth():
+    if stauth is None:
+        st.error("streamlit-authenticator is not installed. Install with: pip install streamlit-authenticator")
+        st.stop()
+    return stauth
+
+def hash_passwords_universal(password_list):
+    """
+    Try multiple known hasher APIs across versions/forks of streamlit-authenticator.
+    Returns list of hashed passwords or stops app with an error.
+    """
+    stauth_local = _ensure_stauth()
+
+    # 1) Newer API: from streamlit_authenticator.utilities.hasher import Hasher
+    try:
+        from streamlit_authenticator.utilities.hasher import Hasher  # type: ignore
+        return Hasher(password_list).generate()
+    except Exception:
+        pass
+
+    # 2) Older API: stauth.Hasher
+    try:
+        return stauth_local.Hasher(password_list).generate()
+    except Exception:
+        pass
+
+    # 3) Some forks: stauth.hasher
+    try:
+        return stauth_local.hasher(password_list).generate()
+    except Exception:
+        pass
+
+    # 4) Last fallback: try manual PBKDF2 (create salted pbkdf2_sha256 strings compatible with some libs)
+    try:
+        import hashlib, binascii, os as _os
+        hashed = []
+        for pwd in password_list:
+            salt = _os.urandom(16)
+            dk = hashlib.pbkdf2_hmac('sha256', pwd.encode(), salt, 200000)
+            hashed.append(binascii.hexlify(salt + dk).decode())
+        return hashed
+    except Exception:
+        st.error("Could not hash passwords with any supported method. Please install a compatible streamlit-authenticator version.")
+        st.stop()
+
+# -------------------------
+# AUTH CREDENTIALS (example)
+# Update these before production; you may pre-hash and store hashed values.
+# -------------------------
+# Plain passwords (for dev). In production, replace with hashed values and don't keep plaintext.
 names = ["Vaishnavi Raut", "Demo User"]
 usernames = ["vaishnavi", "demo"]
 passwords_plain = ["#bharat@123", "demo123"]
 
-if _hasher_fn is None:
-    st.error(
-        "streamlit-authenticator's hasher utility could not be found in this environment.\n\n"
-        "Fix options:\n"
-        "• Install a compatible version: pip install streamlit-authenticator\n"
-        "• Or run a small script to hash passwords locally and paste hashed values into credentials.\n\n"
-        "See the app logs / documentation for more details."
-    )
-    st.stop()
+# Generate hashed passwords using universal hasher
+hashed_passwords = hash_passwords_universal(passwords_plain)
 
-# Generate hashed passwords (safe each run; you may pre-hash in production)
-try:
-    hashed_passwords = _hasher_fn(passwords_plain)
-except Exception as e:
-    st.error(f"Failed to hash passwords: {e}")
-    st.stop()
-
-# Build credentials dict expected by Authenticate
+# Build credentials dict required by stauth.Authenticate
 credentials = {"usernames": {}}
-for uname, display_name, hashed in zip(usernames, names, hashed_passwords):
-    credentials["usernames"][uname] = {"name": display_name, "password": hashed}
+for uname, disp_name, hashed in zip(usernames, names, hashed_passwords):
+    credentials["usernames"][uname] = {"name": disp_name, "password": hashed}
 
-# Create authenticator
-authenticator = stauth.Authenticate(
-    credentials,
-    cookie_name="vaishnavi_terror_cookie",
-    signature_key="vaishnavi_terror_signature_key",
-    cookie_expiry_days=1,
-)
+# Create authenticator (most common API signature)
+try:
+    authenticator = stauth.Authenticate(
+        credentials,
+        cookie_name="vaishnavi_terror_cookie",
+        signature_key="vaishnavi_terror_signature_key",
+        cookie_expiry_days=1,
+    )
+except Exception as e:
+    # try alternate constructor signature (some versions pass different args)
+    try:
+        authenticator = stauth.Authenticate(credentials, "vaishnavi_terror_cookie", "vaishnavi_terror_signature_key", 1)
+    except Exception as e2:
+        st.error(f"Failed to create authenticator: {e} / {e2}")
+        st.stop()
 
 name, auth_status, username = authenticator.login("Login", "main")
 
@@ -98,11 +110,18 @@ name, auth_status, username = authenticator.login("Login", "main")
 # If authenticated, show dashboard
 # -------------------------
 if auth_status:
-    authenticator.logout("Logout", "main")
+    # show logout
+    try:
+        authenticator.logout("Logout", "main")
+    except Exception:
+        # some versions place logout differently; fallback: simple button
+        if st.button("Logout"):
+            st.experimental_rerun()
+
     st.markdown(f"<h3 style='color:#bfc7e6'>Welcome, {name} 🌍</h3>", unsafe_allow_html=True)
 
     # -------------------------
-    # THEME CSS: Black + Blue + Lavender
+    # THEME & CSS
     # -------------------------
     st.markdown(
         """
@@ -114,11 +133,14 @@ if auth_status:
             --lav: #8c92ac;
             --blue: #3a78f2;
             --muted: #95a3b8;
+            --gold: #E6B85A;
         }
         .stApp { background: linear-gradient(180deg,var(--bg1),var(--bg2)); color:#e9eef8; font-family: Inter, sans-serif; }
         .card { background: var(--card); border-radius:12px; padding:12px; margin-bottom:12px; border:1px solid rgba(255,255,255,0.02); box-shadow: 0 8px 30px rgba(0,0,0,0.6); }
         .metric { padding:10px; border-radius:8px; }
         .small { color:var(--muted); font-size:12px; }
+        .gold { color:var(--gold); font-weight:700; }
+        .chip { background: rgba(255,255,255,0.02); padding:6px 10px; border-radius:999px; color:var(--muted); font-size:12px; border:1px solid rgba(255,255,255,0.02); }
         footer {visibility:hidden}
         #MainMenu {visibility:hidden}
         </style>
@@ -141,12 +163,11 @@ if auth_status:
 
     data = load_data(DATA_FILE)
 
-    # Normalize column names -> keep as-is but safe checks
-    # Ensure Country column exists
+    # Safe column normalization
     if "Country" not in data.columns and "country" in data.columns:
         data.rename(columns={"country": "Country"}, inplace=True)
 
-    # Robust iso3 fill (do not overwrite valid codes)
+    # iso3 handling
     def safe_iso3_from_name(name):
         if pd.isna(name):
             return None
@@ -160,15 +181,17 @@ if auth_status:
             return None
 
     if "iso3c" not in data.columns:
-        data["iso3c"] = data.get("Country", "").apply(safe_iso3_from_name)
+        if "Country" in data.columns:
+            data["iso3c"] = data["Country"].apply(safe_iso3_from_name)
+        else:
+            data["iso3c"] = None
     else:
-        # strip and fill missing
         data["iso3c"] = data["iso3c"].astype(str).str.strip().replace({"nan": None, "None": None})
         missing_mask = data["iso3c"].isna() | (data["iso3c"] == "")
         if "Country" in data.columns and missing_mask.any():
             data.loc[missing_mask, "iso3c"] = data.loc[missing_mask, "Country"].apply(safe_iso3_from_name)
 
-    # Numeric conversion
+    # numeric conversions
     for c in ["Incidents", "Fatalities", "Injuries", "Hostages", "Score", "Rank", "Year"]:
         if c in data.columns:
             data[c] = pd.to_numeric(data[c], errors="coerce")
@@ -178,14 +201,18 @@ if auth_status:
             data[c] = data[c].fillna(0)
 
     # -------------------------
-    # SIDEBAR: filters & options
+    # SIDEBAR: filters & settings
     # -------------------------
     with st.sidebar:
         st.header("Filters & Settings")
-        years = sorted(data["Year"].dropna().astype(int).unique().tolist()) if "Year" in data.columns else []
+        years = []
+        if "Year" in data.columns:
+            years = sorted(data["Year"].dropna().astype(int).unique().tolist())
         selected_year = st.selectbox("Year", years, index=len(years)-1 if years else 0) if years else None
 
-        country_list = ["All"] + (sorted(data["Country"].dropna().unique().tolist()) if "Country" in data.columns else [])
+        country_list = ["All"]
+        if "Country" in data.columns:
+            country_list += sorted(data["Country"].dropna().unique().tolist())
         selected_country = st.selectbox("Country", country_list, index=0)
 
         st.markdown("---")
@@ -243,7 +270,7 @@ if auth_status:
     st.markdown("<br/>", unsafe_allow_html=True)
 
     # -------------------------
-    # Map and visuals
+    # Map and visualizations
     # -------------------------
     left, right = st.columns((2,1))
     with left:
