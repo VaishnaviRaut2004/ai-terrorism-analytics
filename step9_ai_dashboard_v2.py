@@ -164,8 +164,8 @@ st.markdown(
         <div class="muted">User: <b>{USERS[current_user]['name']}</b> • Role: <b>{role.upper()}</b></div>
       </div>
       <div style="display:flex; gap:12px; align-items:center;">
-        <div class="small">Data file: gti_cleaned.csv</div>
-        <div class="small">Prepared for reporting & analysis</div>
+       # <div class="small">Data file: gti_cleaned.csv</div>
+       # <div class="small">Prepared for reporting & analysis</div>
       </div>
     </div>
     """,
