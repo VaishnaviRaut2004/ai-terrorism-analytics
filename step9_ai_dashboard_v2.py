@@ -1,6 +1,6 @@
 # step8_ai_dashboard_v2.py
-# PERFECT RIC DASHBOARD — Light-only Sunset / RIC theme
-# Role-based: Admin (edit) / Viewer (interactive read-only)
+# RIC Dashboard — Mixed theme (light main canvas + dark navy sidebar)
+# Role-based: Admin (edit) / Viewer (read-only)
 # Run: streamlit run step8_ai_dashboard_v2.py
 
 import streamlit as st
@@ -41,64 +41,91 @@ if "username" not in st.session_state:
     st.session_state.username = None
 if "login_attempts" not in st.session_state:
     st.session_state.login_attempts = 0
-if "theme_mode" not in st.session_state:
-    st.session_state.theme_mode = "ric-light"
 
 # -------------------------
-# RIC Light CSS (single light-only rich color combination)
+# Mixed theme CSS (light canvas + dark navy sidebar)
 # -------------------------
-RIC_LIGHT_CSS = """
+MIXED_CSS = """
 <style>
 :root{
-  --bg: #FFF9F6;
-  --card: #FFF5F8;
-  --muted: #6B2B4D;
-  --accentA: #FF6F3C;
-  --accentB: #FF5C9E;
-  --accentC: #7B5CFF;
-  --text: #1B0A12;
-  --glass: rgba(255,255,255,0.7);
+  --bg: #F5F7FA;         /* main background */
+  --card: #FFFFFF;       /* card background */
+  --text: #1F2937;       /* primary text */
+  --muted: #6B7280;      /* muted text */
+  --primary: #1A73E8;    /* primary blue */
+  --accent: #E8F0FE;     /* accent light */
+  --sidebar-bg: #0F172A; /* dark navy sidebar */
+  --sidebar-ink: #E6EEF8;
+  --success: #16A34A;
+  --warning: #CA8A04;
+  --danger: #DC2626;
 }
 
-/* page background & font */
+/* Page background & fonts */
 .stApp {
-  background: linear-gradient(180deg, #FFF9F6 0%, #FFF1F3 100%);
+  background: var(--bg);
   color: var(--text);
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto;
 }
 
-/* topbar */
+/* Topbar */
 .topbar {
-  padding:18px 22px;
-  margin-bottom:16px;
-  border-radius:12px;
-  background: linear-gradient(90deg, rgba(255,255,255,0.8), rgba(255,255,255,0.95));
-  border:1px solid rgba(0,0,0,0.04);
-  box-shadow: 0 6px 24px rgba(123,92,255,0.06);
+  padding:16px 22px;
+  margin-bottom:14px;
+  border-radius:10px;
+  background: linear-gradient(90deg, rgba(255,255,255,0.85), rgba(255,255,255,0.95));
+  border:1px solid rgba(31,41,55,0.04);
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
 }
 
-/* title */
-.main-title { font-size:30px; font-weight:800; margin:0; color:var(--accentC); letter-spacing:0.2px; }
+/* Titles */
+.main-title { font-size:28px; font-weight:700; margin:0; color:var(--primary); }
 .muted { color:var(--muted); font-size:13px; }
 
-/* cards */
+/* Cards */
 .card {
   background: var(--card);
-  padding:16px;
-  border-radius:14px;
-  margin-bottom:14px;
-  border:1px solid rgba(0,0,0,0.03);
-  box-shadow: 0 8px 30px rgba(120,80,140,0.04);
+  padding:14px;
+  border-radius:12px;
+  margin-bottom:12px;
+  border:1px solid rgba(31,41,55,0.06);
+  box-shadow: 0 8px 24px rgba(20,30,60,0.03);
 }
 
-/* metrics */
-.metric-title { font-size:20px; font-weight:800; margin:0; color:var(--accentA); }
+/* Metric styles */
+.metric-title { font-size:18px; font-weight:700; margin:0; color:var(--primary); }
 .metric-sub { font-size:13px; color:var(--muted); }
 
-/* sidebar */
-.sidebar .block-container { padding-top: 18px; }
+/* Sidebar overwrite for dark navy look */
+section[data-testid="stSidebar"] > div:first-child {
+  background: linear-gradient(180deg, var(--sidebar-bg), #071130);
+  color: var(--sidebar-ink);
+  padding: 16px 12px 18px 16px;
+  border-radius: 8px;
+}
+section[data-testid="stSidebar"] .stMarkdown, section[data-testid="stSidebar"] .stText {
+  color: var(--sidebar-ink);
+}
 
-/* login card */
+/* Sidebar headings */
+section[data-testid="stSidebar"] h2 {
+  color: var(--sidebar-ink);
+}
+
+/* Buttons */
+.stButton>button {
+  background: linear-gradient(90deg, var(--primary), #6C8CFF);
+  border: none;
+  color: white;
+  font-weight:700;
+}
+
+/* Small helpers */
+.small { font-size:13px; color:var(--muted); }
+
+/* Login card */
 .login-outer {
   min-height:420px;
   display:flex;
@@ -107,25 +134,21 @@ RIC_LIGHT_CSS = """
   padding:30px 14px;
 }
 .login-card {
-  width:880px;
-  border-radius:14px;
-  padding:30px;
-  background: linear-gradient(180deg, rgba(255,255,255,0.95), rgba(255,250,250,0.9));
-  border: 1px solid rgba(0,0,0,0.03);
-  box-shadow: 0 18px 60px rgba(100,40,120,0.06);
+  width:900px;
+  border-radius:12px;
+  padding:28px;
+  background: linear-gradient(180deg, #FFFFFF, #FBFDFF);
+  border: 1px solid rgba(31,41,55,0.04);
+  box-shadow: 0 18px 60px rgba(10,20,40,0.06);
 }
-.login-title { font-size:30px; color:var(--accentC); margin:0; font-weight:800; }
+.login-title { font-size:28px; color:var(--primary); margin:0; font-weight:800; }
 .login-sub { color:var(--muted); margin-top:6px; font-size:13px; }
 
-/* footer */
+/* Footer */
 .footer { text-align:center; color:var(--muted); padding:12px; font-size:13px; }
-
-/* small helpers */
-.small { font-size:13px; color:var(--muted); }
 </style>
 """
-
-st.markdown(RIC_LIGHT_CSS, unsafe_allow_html=True)
+st.markdown(MIXED_CSS, unsafe_allow_html=True)
 
 # -------------------------
 # Utility functions
@@ -150,7 +173,7 @@ def logout():
     st.session_state.username = None
 
 # -------------------------
-# Login UI (light, RIC-styled)
+# Login UI
 # -------------------------
 def login_widget():
     st.markdown(
@@ -181,12 +204,12 @@ def login_widget():
             if st.session_state.login_attempts >= 5:
                 st.warning("Too many failed attempts. Refresh to try again.")
 
-# If not logged in -> show login card and stop
+# Show login card if not authenticated
 if not st.session_state.auth_ok:
     st.markdown("<div class='login-outer'>", unsafe_allow_html=True)
     st.markdown("<div class='login-card'>", unsafe_allow_html=True)
     st.markdown(f"<div style='display:flex; justify-content:space-between; align-items:center;'><div><h1 class='login-title'>RIC — Terrorism Analytics</h1><div class='login-sub'>Secure access — sign in to continue</div></div></div>", unsafe_allow_html=True)
-    st.markdown("<hr style='border:0.5px solid rgba(0,0,0,0.03); margin:14px 0;'>", unsafe_allow_html=True)
+    st.markdown("<hr style='border:0.5px solid rgba(31,41,55,0.04); margin:14px 0;'>", unsafe_allow_html=True)
     login_widget()
     st.markdown("</div></div>", unsafe_allow_html=True)
     st.stop()
@@ -201,43 +224,37 @@ role = USERS.get(current_user, {}).get("role", "viewer")
 st.markdown(
     f"""
     <div class="topbar">
-      <div style="display:flex; justify-content:space-between; align-items:center;">
-        <div style="display:flex; flex-direction:column;">
-          <div style="display:flex; gap:12px; align-items:center;">
-            <h1 class="main-title">RIC — Terrorism Analytics</h1>
-          </div>
-          <div class="muted">User: <b>{USERS[current_user]['name']}</b> • Role: <b>{role.upper()}</b></div>
-        </div>
+      <div style="display:flex; flex-direction:column;">
         <div style="display:flex; gap:12px; align-items:center;">
-          <div class="small">Data file: <b>gti_cleaned.csv</b></div>
-          <div class="small">Prepared for reporting & analysis</div>
-          <div>
-            <button onclick="window.location.reload()" style="background:linear-gradient(90deg,#FF6F3C,#FF5C9E); border:none; padding:8px 12px; border-radius:10px; font-weight:700; color:white;">Refresh</button>
-          </div>
+          <h1 class="main-title">RIC — Terrorism Analytics</h1>
         </div>
+        <div class="muted">User: <b>{USERS[current_user]['name']}</b> • Role: <b>{role.upper()}</b></div>
+      </div>
+      <div style="display:flex; gap:12px; align-items:center;">
+        <div class="small">Data file: <b>gti_cleaned.csv</b></div>
+        <div class="small">Prepared for reporting & analysis</div>
       </div>
     </div>
     """,
     unsafe_allow_html=True,
 )
 
-# Logout
+# Logout (small button)
 if st.button("Logout", key="logout_btn"):
     logout()
     st.experimental_rerun()
 
 # -------------------------
-# Data loading with upload fallback
+# Data loading + upload fallback (in sidebar)
 # -------------------------
 DATA_FILE = "gti_cleaned.csv"
 data = pd.DataFrame()
 loaded_from = None
 
-# Sidebar dataset upload
 with st.sidebar:
     st.markdown("<div class='card'>", unsafe_allow_html=True)
     st.subheader("Dataset")
-    st.markdown("Upload CSV to override default dataset (optional).")
+    st.markdown("Upload a CSV to override default dataset (optional).")
     uploaded = st.file_uploader("Upload CSV", type=["csv"], accept_multiple_files=False)
     if uploaded is not None:
         try:
@@ -248,7 +265,7 @@ with st.sidebar:
             st.error(f"Upload failed: {e}")
     st.markdown("</div>", unsafe_allow_html=True)
 
-# If not uploaded, load default file
+# default file if not uploaded
 if data.empty:
     if Path(DATA_FILE).exists():
         try:
@@ -258,13 +275,12 @@ if data.empty:
             st.error(f"Failed to load {DATA_FILE}: {e}")
             st.stop()
     else:
-        st.error(f"❌ Dataset '{DATA_FILE}' not found. Upload it in the sidebar.")
+        st.error(f"❌ Dataset '{DATA_FILE}' not found. Please upload it in the sidebar.")
         st.stop()
 
 # -------------------------
-# Normalize & clean data
+# Normalize & safe conversions
 # -------------------------
-# Ensure expected columns exist and types are safe
 expected_numeric = ["Incidents", "Fatalities", "Injuries", "Hostages", "Score", "Rank", "Year"]
 for c in expected_numeric:
     if c not in data.columns:
@@ -273,11 +289,9 @@ for c in expected_numeric:
 if "Country" not in data.columns:
     data["Country"] = np.nan
 
-# Convert types
 for c in expected_numeric:
     data[c] = pd.to_numeric(data[c], errors="coerce").fillna(0)
 
-# iso3 handling
 if "iso3c" not in data.columns or data["iso3c"].isnull().any():
     try:
         data["iso3c"] = data["Country"].apply(safe_iso3)
@@ -285,15 +299,14 @@ if "iso3c" not in data.columns or data["iso3c"].isnull().any():
         data["iso3c"] = None
 
 # -------------------------
-# Sidebar: Filters & Visual Options
+# Sidebar: Filters & Controls (dark navy area)
 # -------------------------
 with st.sidebar:
     st.markdown("<div class='card'>", unsafe_allow_html=True)
     st.subheader("Filters & Settings")
-
-    years_list = sorted(list(map(int, data["Year"].dropna().unique()))) if "Year" in data.columns else []
-    if years_list:
-        selected_year = st.selectbox("Year", options=["All"] + years_list, index=0)
+    years = sorted(list(map(int, data["Year"].dropna().unique()))) if "Year" in data.columns else []
+    if years:
+        selected_year = st.selectbox("Year", options=["All"] + years, index=0)
         selected_year = None if selected_year == "All" else int(selected_year)
     else:
         selected_year = None
@@ -330,16 +343,19 @@ with st.sidebar:
     st.markdown("</div>", unsafe_allow_html=True)
 
 # -------------------------
-# Apply filters
+# Apply filters to dataframe
 # -------------------------
 df = data.copy()
 if selected_year is not None and "Year" in df.columns:
-    df = df[df["Year"] == int(selected_year)]
+    try:
+        df = df[df["Year"] == int(selected_year)]
+    except Exception:
+        pass
 if selected_country and selected_country != "All":
     df = df[df["Country"] == selected_country]
 
 # -------------------------
-# Top metrics row
+# Top metrics row (light cards)
 # -------------------------
 col1, col2, col3, col4 = st.columns([2, 1, 1, 1])
 with col1:
@@ -387,7 +403,7 @@ with left:
             anim_df = data.groupby(["Year", "Country", "iso3c"], as_index=False).agg({"Score": "mean", "Incidents": "sum", "Fatalities": "sum"})
             anim_df = anim_df.sort_values("Year")
             fig_map = px.choropleth(anim_df, locations="iso3c", color="Score", hover_name="Country",
-                                    animation_frame="Year", color_continuous_scale=px.colors.sequential.Plasma, projection="natural earth")
+                                    animation_frame="Year", color_continuous_scale=px.colors.sequential.Blues, projection="natural earth")
             fig_map.update_layout(margin=dict(t=10, b=0, l=0, r=0), coloraxis_colorbar=dict(title="Score"))
             st.plotly_chart(fig_map, use_container_width=True)
         else:
@@ -395,7 +411,7 @@ with left:
             if map_df.empty:
                 st.info("No map data for selected filters.")
             else:
-                fig = px.choropleth(map_df, locations="iso3c", color="Score", hover_name="Country", color_continuous_scale=px.colors.sequential.Tealgrn, projection="natural earth")
+                fig = px.choropleth(map_df, locations="iso3c", color="Score", hover_name="Country", color_continuous_scale=px.colors.sequential.Blues, projection="natural earth")
                 fig.update_layout(margin=dict(t=10, b=0, l=0, r=0))
                 st.plotly_chart(fig, use_container_width=True)
     except Exception as e:
@@ -410,8 +426,8 @@ with left:
         try:
             trend = data.groupby("Year").agg({"Incidents": "sum", "Fatalities": "sum", "Score": "mean"}).reset_index()
             fig_tr = go.Figure()
-            fig_tr.add_trace(go.Bar(x=trend["Year"], y=trend["Incidents"], name="Incidents", marker_color="#FF9A6A"))
-            fig_tr.add_trace(go.Scatter(x=trend["Year"], y=trend["Fatalities"], name="Fatalities", yaxis="y2", marker_color="#7B5CFF"))
+            fig_tr.add_trace(go.Bar(x=trend["Year"], y=trend["Incidents"], name="Incidents", marker_color="#1A73E8"))
+            fig_tr.add_trace(go.Scatter(x=trend["Year"], y=trend["Fatalities"], name="Fatalities", yaxis="y2", marker_color="#6C8CFF"))
             fig_tr.update_layout(
                 yaxis=dict(title="Incidents"),
                 yaxis2=dict(title="Fatalities", overlaying="y", side="right"),
@@ -467,7 +483,7 @@ with right:
                 if heat_df.empty:
                     st.info("No data for heatmap.")
                 else:
-                    fig_h = px.imshow(heat_df, text_auto=True, aspect="auto", color_continuous_scale=px.colors.sequential.Magma)
+                    fig_h = px.imshow(heat_df, text_auto=True, aspect="auto", color_continuous_scale=px.colors.sequential.Blues)
                     fig_h.update_layout(margin=dict(t=10, b=0))
                     st.plotly_chart(fig_h, use_container_width=True)
             except Exception as e:
